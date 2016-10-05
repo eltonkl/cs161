@@ -56,11 +56,13 @@
 (defun SPLIT-LIST (L)
     (cond
         ((evenp (length L))
-         (let ((x (/ (length L) 2)))
-              (list (SUB-LIST L 0 x) (SUB-LIST L x x))))
+         (let ((half-len (/ (length L) 2)))
+              (list (SUB-LIST L 0 half-len)
+                    (SUB-LIST L half-len half-len))))
         ((oddp (length L))
-         (let ((x (/ (- (length L) 1) 2)))
-              (list (SUB-LIST L 0 x) (SUB-LIST L x (+ x 1)))))))
+         (let ((half-len (/ (- (length L) 1) 2)))
+              (list (SUB-LIST L 0 half-len)
+                    (SUB-LIST L half-len (+ half-len 1)))))))
 
 ; BTREE-HEIGHT TREE
 ; Returns the height of the binary tree TREE
@@ -70,10 +72,11 @@
 (defun BTREE-HEIGHT (TREE)
     (cond
         ((atom TREE) 0)
-        (t (let ((x (BTREE-HEIGHT (first TREE)))
-                 (y (BTREE-HEIGHT (second TREE))))
-                (cond ((> x y) (+ 1 x))
-                      (t (+ 1 y)))))))
+        (t (let ((height-first (BTREE-HEIGHT (first TREE)))
+                 (height-second (BTREE-HEIGHT (second TREE))))
+                (cond ((> height-first height-second)
+                       (+ 1 height-first))
+                      (t (+ 1 height-second)))))))
 
 ; LIST2BTREE LEAVES
 ; Takes a non-empty list of atoms LEAVES, and returns a binary
