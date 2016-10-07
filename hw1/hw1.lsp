@@ -84,14 +84,12 @@
 ; and for any internal node in the tree, the number of leaves
 ; in its right branch minus the number of leaves in its left
 ; branch is 0 or 1
-; Base cases: LEAVES is length 1: return the only number in LEAVES
-; LEAVES is length 2: return a list of the first two numbers
+; Base case: LEAVES is length 1: return the only number in LEAVES
 ; Otherwise: split the list using SPLIT-LIST and combine the
 ; results of recursive calls to LIST2BTREE on the two halves
 (defun LIST2BTREE (LEAVES)
     (cond 
         ((= (length LEAVES) 1) (first LEAVES))
-        ((= (length LEAVES) 2) (list (first leaves) (second LEAVES)))
         (t (let
              ((lists (SPLIT-LIST LEAVES)))
              (list (LIST2BTREE (first lists)) (LIST2BTREE (second lists)))))))
