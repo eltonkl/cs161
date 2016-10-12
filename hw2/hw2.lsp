@@ -141,8 +141,7 @@
 (defun mult-dfs (states path depth)
     (cond
         ((null states) nil)
-        ((= depth 0) nil)
-        ((= depth 1) ; Verify that a "leaf" node is the final state
+        ((= depth 0) ; Verify that a "leaf" node is the final state
             (cond
                 ((final-state (first states)) (append path (list (first states)))) ; Check head
                 (t (mult-dfs (rest states) path depth)))) ; Check tail
@@ -162,7 +161,7 @@
 ; the path from the initial state to the goal state, if any, or NIL otherwise.
 (defun single-dfs (s path depth)
     (cond
-        ((= depth 0) nil)
+        ((= depth 0) (cond ((final-state s) (list s))))
         (t (mult-dfs (succ-fn s) (append path (list s)) (- depth 1)))))
 
 ; ID-DFS is the top-level function. It takes two arguments: an initial state (S)
