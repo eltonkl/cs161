@@ -11,6 +11,7 @@
 
 ; DFID tree maxdepth
 ; Depth-first iterative-deepening search
+; Call DFSID with a starting depth of 1 - the root node has no value, so traversing it won't result in anything
 (defun DFID (tree maxdepth)
     (DFSID tree 1 maxdepth))
 
@@ -145,14 +146,17 @@
             (cond
                 ((final-state (first states)) (append path (list (first states)))) ; Check head
                 (t (mult-dfs (rest states) path depth)))) ; Check tail
-        (t  (let*
-                (
-                    (cur-state (first states))
-                    (successors (succ-fn cur-state)) ; Increase tree depth by 1, so depth must be decreased for next mult-dfs call
-                    (cur-result (mult-dfs successors (append path (list cur-state)) (- depth 1))))
+        (t (let*
+                ((cur-state (first states)))
                 (cond
-                    (cur-result cur-result)
-                    (t (mult-dfs (rest states) path depth))))))) ; Evaluate other successor states
+                    ((final-state cur-state) (append path (list (cur-state)))) ; Short circuit checking if the state is the final state
+                    (t (let*
+                            (
+                                (successors (succ-fn cur-state)) ; Increase tree depth by 1, so depth must be decreased for next mult-dfs call
+                                (cur-result (mult-dfs successors (append path (list cur-state)) (- depth 1))))
+                            (cond
+                                (cur-result cur-result)
+                                (t (mult-dfs (rest states) path depth)))))))))) ; Evaluate other successor states
 
 ; SINGLE-DFS does a single depth-first iteration to the given depth. It takes
 ; three arguments: a state (S), the path from the initial state to S (PATH), and
