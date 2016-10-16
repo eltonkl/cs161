@@ -168,6 +168,7 @@
   );end
 
 ; no-boxes row
+; Helper function for goal-test
 ; Returns t if the row contains no boxes and nil otherwise
 (defun no-boxes (row)
 	(cond
@@ -191,6 +192,7 @@
 )
 
 ; get-square s r c
+; Helper function for try-move
 ; Given state s, row number r, column number c, returns the integer
 ; content of square (r, c) for the state s.
 (defun get-square (s r c)
@@ -201,24 +203,26 @@
         )
         (cond
             ((or (= r num-r) (> r num-r) (= c num-c) (> c num-c) (< r 0) (< c 0)) wall) ; ARE WE ALLOWED TO USE >= or <=???
+            ; ^^^ Bounds checks
             (t (car (nthcdr c (car (nthcdr r s)))))
         )
     )
 )
 
 ; set-square s r c v
+; Helper function for try-move
 ; Given state s, row number r, column number c, and square content v
 ; Returns the new state obtained by setting the square (r, c) to value v
 (defun set-square (s r c v)
     (let*
         (
-            (frontrows (butlast s (- (length s) r)))
-            (currow (car (nthcdr r s)))
-            (backrows (cdr (nthcdr r s)))
-            (frontcols (butlast currow (- (length currow) c)))
-            (backcols (cdr (nthcdr c currow)))
-            (newcols (append frontcols (list v) backcols))
-            (newrows (append frontrows (list newcols) backrows))
+            (frontrows (butlast s (- (length s) r))) ; Rows in front of the desired row
+            (currow (car (nthcdr r s))) ; Desired row
+            (backrows (cdr (nthcdr r s))) ; Row behind the desired row
+            (frontcols (butlast currow (- (length currow) c))) ; Cols behind the desired col
+            (backcols (cdr (nthcdr c currow))) ; Cols in front of the desired col
+            (newcols (append frontcols (list v) backcols)) ; Create new col
+            (newrows (append frontrows (list newcols) backrows)) ; Create new rows
         )
         newrows
     )
@@ -229,7 +233,9 @@
 ; 2 is down
 ; 3 is left
 ; We aren't allowed to use globals, so I'll just have to mark direction-int correspondence in a comment
+
 ; try-move s d
+; Helper function for next-states
 ; For a given state s and a given direction d (where d is an int corresponding) to the table above,
 ; returns the valid state s if the keeper can move in the given direction (while moving the relevant box or updating states appropriately)
 ; or returns nil otherwise.
@@ -302,6 +308,7 @@
 )
 
 ; count-boxes row
+; Helper function for h1
 ; Returns the number of boxes in the row.
 (defun count-boxes (row)
     (count box row)
@@ -309,7 +316,7 @@
 
 ; h1 s
 ; Computes the number of misplaced boxes in s.
-; h1 is an admissible function - 
+; h1 is an admissible function - at the minimum, it counts the number of moves that have to be made to finish the game; thus, no overestimating will occur.
 (defun h1 (s)
     (cond
         ((null s) 0)
