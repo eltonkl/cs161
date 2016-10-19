@@ -252,37 +252,45 @@
             (old-square-cur-val (get-square s keeper-r keeper-c)) ; Keeper's old position's current value
             (new-square-cur-val (get-square s new-keeper-r new-keeper-c)) ; Keeper's new position's current value
             (old-square-new-val (cond ((isKeeper old-square-cur-val) blank) (t star))) ; If the keeper wasn't on a star, it becomes blank, but if the keeper was on a star, it becomes star
-            (keeper-moved-from-old-s (set-square s keeper-r keeper-c old-square-new-val)) ; State after the keeper moves off the current square (keeper is not on the new square yet)
             (new-square-new-val (cond ((or (isStar new-square-cur-val) (isBoxStar new-square-cur-val)) keeperstar) (t keeper))) ; If the keeper moves onto a star, the new position value becomes keeperstar. Otherwise, the value becomes keeper
-            (keeper-moved-onto-new-s (set-square keeper-moved-from-old-s new-keeper-r new-keeper-c new-square-new-val)) ; State after keeper moves onto new square
         )
         (cond
             ((isWall new-square-cur-val) nil) ; If the keeper would move onto a wall, return nil
-            ( ; Keeper is moving onto what is currently a box
-                (or (isBox new-square-cur-val) (isBoxStar new-square-cur-val))
+            (t
                 (let*
                     (
-                        (new-box-r (+ new-keeper-r delta-r)) ; Box is being pushed - what's the new r
-                        (new-box-c (+ new-keeper-c delta-c)) ; New c
-                        (new-box-cur-val (get-square s new-box-r new-box-c))
+                        (keeper-moved-from-old-s (set-square s keeper-r keeper-c old-square-new-val)) ; State after the keeper moves off the current square (keeper is not on the new square yet)
+                        (keeper-moved-onto-new-s (set-square keeper-moved-from-old-s new-keeper-r new-keeper-c new-square-new-val)) ; State after keeper moves onto new square))
                     )
                     (cond
-                        (
-                            (or (isBlank new-box-cur-val) (isStar new-box-cur-val)) ; Where the box is being moved to is a valid position for the box to be moved to
+                        ( ; Keeper is moving onto what is currently a box
+                            (or (isBox new-square-cur-val) (isBoxStar new-square-cur-val))
                             (let*
                                 (
-                                    (new-box-new-val (cond ((isBlank new-box-cur-val) box) (t boxstar))) ; If the new position of the box is blank, then it becomes box; otherwise if it was star, it becomes boxstar
-                                    (box-moved-onto-new-s (set-square keeper-moved-onto-new-s new-box-r new-box-c new-box-new-val)) ; New state after box is moved
+                                    (new-box-r (+ new-keeper-r delta-r)) ; Box is being pushed - what's the new r
+                                    (new-box-c (+ new-keeper-c delta-c)) ; New c
+                                    (new-box-cur-val (get-square s new-box-r new-box-c))
                                 )
-                                box-moved-onto-new-s
+                                (cond
+                                    (
+                                        (or (isBlank new-box-cur-val) (isStar new-box-cur-val)) ; Where the box is being moved to is a valid position for the box to be moved to
+                                        (let*
+                                            (
+                                                (new-box-new-val (cond ((isBlank new-box-cur-val) box) (t boxstar))) ; If the new position of the box is blank, then it becomes box; otherwise if it was star, it becomes boxstar
+                                                (box-moved-onto-new-s (set-square keeper-moved-onto-new-s new-box-r new-box-c new-box-new-val)) ; New state after box is moved
+                                            )
+                                            box-moved-onto-new-s
+                                        )
+                                    )
+                                    (t nil) ; Box being moved onto something that's not empty or a star
+                                )
                             )
                         )
-                        (t nil) ; Box being moved onto something that's not empty or a star
+                        ((or (isBlank new-square-cur-val) (isStar new-square-cur-val)) keeper-moved-onto-new-s) ; If the keeper is moving onto a blank spot or a star, return the state after the keeper moves onto the new square
+                        (t nil) ; Invalid move, return nil
                     )
                 )
             )
-            ((or (isBlank new-square-cur-val) (isStar new-square-cur-val)) keeper-moved-onto-new-s) ; If the keeper is moving onto a blank spot or a star, return the state after the keeper moves onto the new square
-            (t nil) ; Invalid move, return nil
         )
     )
 )
@@ -324,6 +332,41 @@
     )
 )
 
+;
+; Helper function of getBoxPosition
+;
+(defun getBoxColumn (r col)
+  (cond ((null r) nil)
+	(t (if (isBox (car r))
+	       col
+	     (getBoxColumn (cdr r) (+ col 1))
+	     );end if
+	   );end t
+	);end cond
+  )
+
+;
+; getBoxPosition (s firstRow)
+; Returns a list indicating the position of the box (c r).
+; 
+; Assumes that the keeper is in row >= firstRow.
+; The top row is the zeroth row.
+; The first (right) column is the zeroth column.
+;
+(defun getBoxPosition (s row)
+  (cond ((null s) nil)
+	(t (let ((x (getBoxColumn (car s) 0)))
+	     (if x
+		 ;keeper is in this row
+		 (list x row)
+		 ;otherwise move on
+		 (getBoxPosition (cdr s) (+ row 1))
+		 );end if
+	       );end let
+	 );end t
+	);end cond
+  );end defun
+
 ; EXERCISE: Change the name of this function to h<UID> where
 ; <UID> is your actual student ID number. Then, modify this
 ; function to compute an admissible heuristic value of s.
@@ -333,8 +376,29 @@
 ; The Lisp 'time' function can be used to measure the
 ; running time of a function call.
 ;
-(defun hUID (s)
-
+(defun h2 (s)
+    (let*
+        (
+            (keeper (getKeeperPosition s 0))
+            (box (getBoxPosition s 0))
+            (keeper-r (cadr keeper))
+            (keeper-c (car keeper))
+        )
+        (cond
+            ((null box) 0)
+            (t
+                (let*
+                    (
+                        (box-r (cadr box))
+                        (box-c (car box))
+                        (diff-r (cond ((> keeper-r box-r) (- keeper-r box-r)) (t (- box-r keeper-r))))
+                        (diff-c (cond ((> keeper-c box-c) (- keeper-r box-r)) (t (- box-c keeper-c))))
+                    )
+                    (+ diff-r diff-c)
+                )
+            )
+        )
+    )
 )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
