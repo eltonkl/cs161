@@ -342,55 +342,67 @@
 ; running time of a function call.
 ;
 
-(defun manhat (r1 c1 r2 c2)
-    (let
-        (
-            (diff-r (cond ((> r1 r2) (- r1 r2)) (t (- r2 r1))))
-            (diff-c (cond ((> c1 c2) (- c1 c2)) (t (- c2 c1))))
-        )
-        (+ diff-r diff-c)
+(defun get-square-f (s num-r num-c r c)
+    (cond
+        ((or (= r num-r) (> r num-r) (= c num-c) (> c num-c) (< r 0) (< c 0)) wall) ; ARE WE ALLOWED TO USE >= or <=???
+        ; ^^^ Bounds checks
+        (t (car (nthcdr c (car (nthcdr r s)))))
     )
 )
 
-(defun col-manhats (row row-num col-num accum keeper-r keeper-c) ; pls tail recursion optimizations pls
+(defun corner (orig-s orig-r orig-c r c)
+    (let*
+        (
+            (up (- r 1))
+            (down (+ r 1))
+            (left (- c 1))
+            (right (+ c 1))
+            (up-n (cond ((isWall (get-square-f orig-s orig-r orig-c up c)) 1) (t 0)))
+            (down-n (cond ((isWall (get-square-f orig-s orig-r orig-c down c)) 1) (t 0)))
+            (left-n (cond ((isWall (get-square-f orig-s orig-r orig-c r left)) 1) (t 0)))
+            (right-n (cond ((isWall (get-square-f orig-s orig-r orig-c r right)) 1) (t 0)))
+            (v-wall-count (+ up-n down-n))
+            (h-wall-count (+ left-n right-n))
+        )
+        (cond
+            ((and (> v-wall-count 0) (> h-wall-count 0)) 100)
+            (t 0)
+        )
+    )
+)
+
+(defun col-corners (orig-s orig-r orig-c row row-num col-num accum) ; pls tail recursion optimizations pls
     (cond
         ((null row) accum)
         (t 
             (let*
                 (
-                    (cur-manhat (cond ((isBox (car row)) (manhat row-num col-num keeper-r keeper-c)) (t 0)))
-                    (new-accum (+ accum cur-manhat))
+                    (cur-corner (cond ((isBox (car row)) (corner orig-s orig-r orig-c row-num col-num)) (t 0)))
+                    (new-accum (+ accum cur-corner))
                 )
-                (col-manhats (cdr row) row-num (+ 1 col-num) new-accum keeper-r keeper-c)
+                (col-corners orig-s orig-r orig-c (cdr row) row-num (+ 1 col-num) new-accum)
             )
         )
     )
 )
 
-(defun total-manhats (s row-num accum keeper-r keeper-c)
+(defun total-corners (orig-s orig-r orig-c s row-num accum)
     (cond
         ((null s) accum)
         (t
             (let*
                 (
-                    (cur-col-manhats (col-manhats (car s) row-num 0 0 keeper-r keeper-c))
-                    (new-accum (+ accum cur-col-manhats))
+                    (cur-col-corners (col-corners orig-s orig-r orig-c (car s) row-num 0 0))
+                    (new-accum (+ accum cur-col-corners))
                 )
-                (total-manhats (cdr s) (+ 1 row-num) new-accum keeper-r keeper-c)
+                (total-corners orig-s orig-r orig-c (cdr s) (+ 1 row-num) new-accum)
             )
         )
     )
 )
 
 (defun h2 (s)
-    (let*
-        (
-            (keeper (getKeeperPosition s 0))
-            (keeper-r (cadr keeper))
-            (keeper-c (car keeper))
-        )
-        (total-manhats s 0 0 keeper-r keeper-c)
-    )
+    (total-corners s (length s) (length (first s)) s 0 0)
 )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
