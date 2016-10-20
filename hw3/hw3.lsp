@@ -332,16 +332,13 @@
     )
 )
 
-; EXERCISE: Change the name of this function to h<UID> where
-; <UID> is your actual student ID number. Then, modify this
-; function to compute an admissible heuristic value of s.
-;
-; This function will be entered in the competition.
 ; Objective: make A* solve problems as fast as possible.
 ; The Lisp 'time' function can be used to measure the
 ; running time of a function call.
-;
 
+; Helper for col-manhats
+; manhat r1 c1 r2 c2
+; Computes manhattan distance of given coordinate pairs (r1, c1) and (r2, c2)
 (defun manhat (r1 c1 r2 c2)
     (let
         (
@@ -352,7 +349,13 @@
     )
 )
 
-(defun col-manhats (row row-num col-num accum keeper-r keeper-c) ; pls tail recursion optimizations pls
+; Helper for total-manhats
+; col-manhats row row-num col-num accum keeper-r keeper-c
+; Given a row and its number (row-num) and the head of the row's column number (col-num)
+; and an accumulator accum (in hopes of tail call optimization)
+; and the precomputed keeper coordinates (keeper-r, keeper-c)
+; Returns the sum of the manhattan distances between each box and the keeper for the given row
+(defun col-manhats (row row-num col-num accum keeper-r keeper-c)
     (cond
         ((null row) accum)
         (t 
@@ -366,6 +369,12 @@
         )
     )
 )
+
+; Helper for h3
+; total-manhats s row-num accum keeper-r keeper-c
+; Given a state s and the head of the state (the current row)'s row number (row-num)
+; and an accumulator and keeper coordinates, returns the sum of the manhattan distances between each box
+; and the keeper for the whole map
 
 (defun total-manhats (s row-num accum keeper-r keeper-c)
     (cond
@@ -382,6 +391,9 @@
     )
 )
 
+; h3: admissible heuristic #1 to be used in conjunction with another heuristic
+; h3 s
+; see total-manhats for the actual description of this heuristic
 (defun h3 (s)
     (let*
         (
@@ -393,6 +405,9 @@
     )
 )
 
+; get-square-fast, helper for corner
+; get-square-f s num-r num-c r c
+; Use precomputed num-r num-c instead of calculating it every time we call get-square
 (defun get-square-f (s num-r num-c r c)
     (cond
         ((or (= r num-r) (> r num-r) (= c num-c) (> c num-c) (< r 0) (< c 0)) wall) ; ARE WE ALLOWED TO USE >= or <=???
@@ -401,7 +416,13 @@
     )
 )
 
-(defun corner (orig-s orig-r orig-c r c)
+; box-in-corner-score: helper for box-corner-col-score, which is indirectly a helper for h4
+; box-in-corner-score orig-s orig-r orig-c r c
+; If (r, c) is trapped in a corner, return 100, otherwise 0
+; Making h(n) a minimum of 100 makes the state this (r, c) is contained in very unlikely to be explored
+; If there is a box in a corner, we want to not explore this state anymore, so adding a large number makes that the case
+; Can't use a really big number because our maximum for f(n) for the given a-star is 4999
+(defun box-in-corner-score (orig-s orig-r orig-c r c)
     (let*
         (
             (up (- r 1))
@@ -422,40 +443,51 @@
     )
 )
 
-(defun col-corners (orig-s orig-r orig-c row row-num col-num accum) ; pls tail recursion optimizations pls
+; Helper function for total-box-corner-score
+; box-corner-col-score totals all calls of corner on box coords for the given row
+; Uses the same precompute and accumulate strategy as the helpers for h3
+(defun box-corner-col-score (orig-s orig-r orig-c row row-num col-num accum)
     (cond
         ((null row) accum)
         (t 
             (let*
                 (
-                    (cur-corner (cond ((isBox (car row)) (corner orig-s orig-r orig-c row-num col-num)) (t 0)))
+                    (cur-corner (cond ((isBox (car row)) (box-in-corner-score orig-s orig-r orig-c row-num col-num)) (t 0)))
                     (new-accum (+ accum cur-corner))
                 )
-                (col-corners orig-s orig-r orig-c (cdr row) row-num (+ 1 col-num) new-accum)
+                (box-corner-col-score orig-s orig-r orig-c (cdr row) row-num (+ 1 col-num) new-accum)
             )
         )
     )
 )
 
-(defun total-corners (orig-s orig-r orig-c s row-num accum)
+; Helper function for h4
+; total-box-corner-score orig-s orig-r orig-c s row-num accum
+; Same idea: total score of all boxes in corners for the given state s
+(defun total-box-corner-score (orig-s orig-r orig-c s row-num accum)
     (cond
         ((null s) accum)
         (t
             (let*
                 (
-                    (cur-col-corners (col-corners orig-s orig-r orig-c (car s) row-num 0 0))
-                    (new-accum (+ accum cur-col-corners))
+                    (cur-box-corner-col-score (box-corner-col-score orig-s orig-r orig-c (car s) row-num 0 0))
+                    (new-accum (+ accum cur-box-corner-col-score))
                 )
-                (total-corners orig-s orig-r orig-c (cdr s) (+ 1 row-num) new-accum)
+                (total-box-corner-score orig-s orig-r orig-c (cdr s) (+ 1 row-num) new-accum)
             )
         )
     )
 )
 
+; h4: admissible heuristic
+; Basically, if we have a box in a corner, we want this state to not be expanded, so add a large number
 (defun h4 (s)
-    (total-corners s (length s) (length (first s)) s 0 0)
+    (total-box-corner-score s (length s) (length (first s)) s 0 0)
 )
 
+; h2: Combination of h3 and h4 (this is pretty fast!)
+; Admissible heuristic: the total of manhattan distances of boxes to the keeper
+; and if there is a box in a corner, try to get the A* to skip this state
 (defun h2 (s)
     (+ (h3 s) (h4 s))
 )
