@@ -367,6 +367,28 @@
 	);end cond
   );end defun
 
+(defun h2h (s start-r keeper-r keeper-c)
+    (let
+        ((box (getBoxPosition (nthcdr start-r s) start-r)))
+        (cond
+            ((null box) 0)
+            (t
+                (let*
+                    (
+                        (box-r (cadr box))
+                        (box-c (car box))
+                        (diff-r (cond ((> keeper-r box-r) (- keeper-r box-r)) (t (- box-r keeper-r))))
+                        (diff-c (cond ((> keeper-c box-c) (- keeper-r box-r)) (t (- box-c keeper-c))))
+                        (diff (+ diff-r diff-c))
+                        (next (h2h (set-square s box-r box-c blank) box-r keeper-r keeper-c))
+                    )
+                    (+ diff next)
+                )
+            )
+        )
+    )
+)
+
 ; EXERCISE: Change the name of this function to h<UID> where
 ; <UID> is your actual student ID number. Then, modify this
 ; function to compute an admissible heuristic value of s.
@@ -377,27 +399,9 @@
 ; running time of a function call.
 ;
 (defun h2 (s)
-    (let*
-        (
-            (keeper (getKeeperPosition s 0))
-            (box (getBoxPosition s 0))
-            (keeper-r (cadr keeper))
-            (keeper-c (car keeper))
-        )
-        (cond
-            ((null box) 0)
-            (t
-                (let*
-                    (
-                        (box-r (cadr box))
-                        (box-c (car box))
-                        (diff-r (cond ((> keeper-r box-r) (- keeper-r box-r)) (t (- box-r keeper-r))))
-                        (diff-c (cond ((> keeper-c box-c) (- keeper-r box-r)) (t (- box-c keeper-c))))
-                    )
-                    (+ diff-r diff-c)
-                )
-            )
-        )
+    (let
+        ((keeper (getKeeperPosition s 0)))
+        (h2h s 0 (cadr keeper) (car keeper))
     )
 )
 
