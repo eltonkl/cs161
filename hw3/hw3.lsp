@@ -332,63 +332,6 @@
     )
 )
 
-;
-; Helper function of getBoxPosition
-;
-(defun getBoxColumn (r col)
-  (cond ((null r) nil)
-	(t (if (isBox (car r))
-	       col
-	     (getBoxColumn (cdr r) (+ col 1))
-	     );end if
-	   );end t
-	);end cond
-  )
-
-;
-; getBoxPosition (s firstRow)
-; Returns a list indicating the position of the box (c r).
-; 
-; Assumes that the keeper is in row >= firstRow.
-; The top row is the zeroth row.
-; The first (right) column is the zeroth column.
-;
-(defun getBoxPosition (s row)
-  (cond ((null s) nil)
-	(t (let ((x (getBoxColumn (car s) 0)))
-	     (if x
-		 ;keeper is in this row
-		 (list x row)
-		 ;otherwise move on
-		 (getBoxPosition (cdr s) (+ row 1))
-		 );end if
-	       );end let
-	 );end t
-	);end cond
-  );end defun
-
-(defun h2h (s start-r keeper-r keeper-c)
-    (let
-        ((box (getBoxPosition (nthcdr start-r s) start-r)))
-        (cond
-            ((null box) 0)
-            (t
-                (let*
-                    (
-                        (box-r (cadr box))
-                        (box-c (car box))
-                        (diff-r (cond ((> keeper-r box-r) (- keeper-r box-r)) (t (- box-r keeper-r))))
-                        (diff-c (cond ((> keeper-c box-c) (- keeper-r box-r)) (t (- box-c keeper-c))))
-                        (diff (+ diff-r diff-c))
-                        (next (h2h (set-square s box-r box-c blank) box-r keeper-r keeper-c))
-                    )
-                    (+ diff next)
-                )
-            )
-        )
-    )
-)
-
 ; EXERCISE: Change the name of this function to h<UID> where
 ; <UID> is your actual student ID number. Then, modify this
 ; function to compute an admissible heuristic value of s.
@@ -398,10 +341,55 @@
 ; The Lisp 'time' function can be used to measure the
 ; running time of a function call.
 ;
-(defun h2 (s)
+
+(defun manhat (r1 c1 r2 c2)
     (let
-        ((keeper (getKeeperPosition s 0)))
-        (h2h s 0 (cadr keeper) (car keeper))
+        (
+            (diff-r (cond ((> r1 r2) (- r1 r2)) (t (- r2 r1))))
+            (diff-c (cond ((> c1 c2) (- c1 c2)) (t (- c2 c1))))
+        )
+        (+ diff-r diff-c)
+    )
+)
+
+(defun col-manhats (row row-num col-num accum keeper-r keeper-c) ; pls tail recursion optimizations pls
+    (cond
+        ((null row) accum)
+        (t 
+            (let*
+                (
+                    (cur-manhat (cond ((isBox (car row)) (manhat row-num col-num keeper-r keeper-c)) (t 0)))
+                    (new-accum (+ accum cur-manhat))
+                )
+                (col-manhats (cdr row) row-num (+ 1 col-num) new-accum keeper-r keeper-c)
+            )
+        )
+    )
+)
+
+(defun total-manhats (s row-num accum keeper-r keeper-c)
+    (cond
+        ((null s) accum)
+        (t
+            (let*
+                (
+                    (cur-col-manhats (col-manhats (car s) row-num 0 0 keeper-r keeper-c))
+                    (new-accum (+ accum cur-col-manhats))
+                )
+                (total-manhats (cdr s) (+ 1 row-num) new-accum keeper-r keeper-c)
+            )
+        )
+    )
+)
+
+(defun h2 (s)
+    (let*
+        (
+            (keeper (getKeeperPosition s 0))
+            (keeper-r (cadr keeper))
+            (keeper-c (car keeper))
+        )
+        (total-manhats s 0 0 keeper-r keeper-c)
     )
 )
 
