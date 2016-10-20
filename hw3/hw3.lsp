@@ -342,6 +342,57 @@
 ; running time of a function call.
 ;
 
+(defun manhat (r1 c1 r2 c2)
+    (let
+        (
+            (diff-r (cond ((> r1 r2) (- r1 r2)) (t (- r2 r1))))
+            (diff-c (cond ((> c1 c2) (- c1 c2)) (t (- c2 c1))))
+        )
+        (+ diff-r diff-c)
+    )
+)
+
+(defun col-manhats (row row-num col-num accum keeper-r keeper-c) ; pls tail recursion optimizations pls
+    (cond
+        ((null row) accum)
+        (t 
+            (let*
+                (
+                    (cur-manhat (cond ((isBox (car row)) (manhat row-num col-num keeper-r keeper-c)) (t 0)))
+                    (new-accum (+ accum cur-manhat))
+                )
+                (col-manhats (cdr row) row-num (+ 1 col-num) new-accum keeper-r keeper-c)
+            )
+        )
+    )
+)
+
+(defun total-manhats (s row-num accum keeper-r keeper-c)
+    (cond
+        ((null s) accum)
+        (t
+            (let*
+                (
+                    (cur-col-manhats (col-manhats (car s) row-num 0 0 keeper-r keeper-c))
+                    (new-accum (+ accum cur-col-manhats))
+                )
+                (total-manhats (cdr s) (+ 1 row-num) new-accum keeper-r keeper-c)
+            )
+        )
+    )
+)
+
+(defun h3 (s)
+    (let*
+        (
+            (keeper (getKeeperPosition s 0))
+            (keeper-r (cadr keeper))
+            (keeper-c (car keeper))
+        )
+        (total-manhats s 0 0 keeper-r keeper-c)
+    )
+)
+
 (defun get-square-f (s num-r num-c r c)
     (cond
         ((or (= r num-r) (> r num-r) (= c num-c) (> c num-c) (< r 0) (< c 0)) wall) ; ARE WE ALLOWED TO USE >= or <=???
@@ -401,8 +452,12 @@
     )
 )
 
-(defun h2 (s)
+(defun h4 (s)
     (total-corners s (length s) (length (first s)) s 0 0)
+)
+
+(defun h2 (s)
+    (+ (h3 s) (h4 s))
 )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
