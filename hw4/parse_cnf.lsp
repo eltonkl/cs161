@@ -14,6 +14,6 @@
   (let ((cnf (read-cnf filename))) (list (car cnf) (cdr cnf))))
 
 ; Following is a helper function that combines parse-cnf and sat?
-;(defun solve-cnf (filename)
-;  (let ((cnf (parse-cnf filename))) (sat? (first cnf) (second cnf))))
+(defun solve-cnf (filename)
+  (let ((cnf (parse-cnf filename))) (sat? (first cnf) (second cnf))))
 
