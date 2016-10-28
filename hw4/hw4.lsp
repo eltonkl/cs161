@@ -174,14 +174,58 @@
     )
 )
 
-; heuristic-index-of-undefined-variable n delta values
-; Bad heuristic: Find first unset variable
-;; (defun heuristic-index-of-undefined-variable (start n delta values)
-;;     (cond
-;;         ((= (get-value values start) 0) start)
-;;         (t (heuristic-index-of-undefined-variable (+ start 1) n delta values))
-;;     )
-;; )
+; count-pure delta pures
+; Update pures list according to the clause: the n'th item in pures is 0 if not found yet, nil if not pure, 1 if still positive pure, -1 if still negative pure
+(defun count-pure (clause pures)
+    (cond
+        ((null clause) pures)
+        (t
+            (let*
+                (
+                    (cur-value (car clause))
+                    (cur-index (absv cur-value))
+                    (cur-sign (sign cur-value))
+                    (prev-value (get-value pures cur-index))
+                    (new-value (cond ((null prev-value) nil) ((eq 0 prev-value) cur-sign) ((eq prev-value cur-sign) prev-value) (t nil)))
+                )
+                (count-pure (cdr clause) (set-value pures cur-index new-value))
+            )
+        )
+    )
+)
+
+; count-pures delta pures
+; Update pures list: the n'th item in pures is 0 if not found yet, nil if not pure, 1 if all positive pure, -1 if all negative pure
+(defun count-pures (delta pures)
+    (cond
+        ((null delta) pures)
+        ((count-pures (cdr delta) (count-pure (car delta) pures)))
+    )
+)
+
+; eliminate-pures delta values n start pures
+; For the start'th variable, if it is pure, then assign it in values and then remove all clauses that have the pure variable
+(defun eliminate-pures (delta values n start pures)
+    (cond
+        ((> start n) (list delta values))
+        ((let*
+            ((cur-pure (get-value pures start)))
+            (cond
+                ((or (eq 1 cur-pure) (eq -1 cur-pure)) (eliminate-pures (reduce-clauses delta start cur-pure) (set-value values start cur-pure) n (+ start 1) pures))
+                ((eliminate-pures delta values n (+ start 1) pures))
+            )
+        ))
+    )
+)
+
+; pure-literal delta n values
+; Perform pure-literal elimination
+(defun pure-literal (delta n values)
+    (cond
+        ((and (null delta) (null values)) nil) ; this is directly fed output of ur, so if both ur outputs are nil, return nil
+        ((eliminate-pures delta values n 1 (count-pures delta (generate-unassigned-values n))))
+    )
+)
 
 ; Implentation of heuristic: find the variable that appears the most times in all of the clauses
 ; Slower for small CNFs, but faster for a lot of unsatisfiable CNFs
@@ -195,7 +239,7 @@
     )
 )
 
-; count-clauses delta value
+; count-clauses delta counts
 ; Update counts list: the n'th item in counts is the count of how many times n appears in delta
 (defun count-clauses (delta counts)
     (cond
@@ -243,37 +287,41 @@
             (ur-result (unit-resolution n delta values))
             (ur-delta (car ur-result))
             (ur-values (cadr ur-result))
+            ; Perform pure literal elimination
+            (pl-result (pure-literal ur-delta n ur-values))
+            (pl-delta (car pl-result))
+            (pl-values (cadr pl-result))
         )
         (cond
-            ((null ur-result) nil)
-            ((null ur-delta) (convert-to-result (assign-true-to-undefined-variables ur-values) 1 n))
+            ((null pl-result) nil) ; unit resolution determined that the CNF is unsatisfiable
+            ((null pl-delta) (convert-to-result (assign-true-to-undefined-variables pl-values) 1 n))
             (
                 (let* ; Back-tracking DFS
                     (
-                        (index-of-variable-to-set (heuristic-index-of-undefined-variable 1 n ur-delta ur-values))
+                        (index-of-variable-to-set (heuristic-index-of-undefined-variable 1 n pl-delta pl-values))
                     )
                     (cond
                         (
                             (let* ; DFS set positive
                                 (
-                                    (new-delta-true (set-value ur-values index-of-variable-to-set 1))
-                                    (cant-use-true (new-value-contradicts ur-delta n new-delta-true))
+                                    (new-delta-true (set-value pl-values index-of-variable-to-set 1))
+                                    (cant-use-true (new-value-contradicts pl-delta n new-delta-true))
                                 )
                                 (cond
                                     (cant-use-true nil)
-                                    (t (sat?-helper n (reduce-clauses ur-delta index-of-variable-to-set 1) new-delta-true))
+                                    (t (sat?-helper n (reduce-clauses pl-delta index-of-variable-to-set 1) new-delta-true))
                                 )
                             )
                         )
                         (
                             (let* ; DFS set negative
                                 (
-                                    (new-delta-false (set-value ur-values index-of-variable-to-set -1))
-                                    (cant-use-false (new-value-contradicts ur-delta n new-delta-false))
+                                    (new-delta-false (set-value pl-values index-of-variable-to-set -1))
+                                    (cant-use-false (new-value-contradicts pl-delta n new-delta-false))
                                 )
                                 (cond
                                     (cant-use-false nil)
-                                    (t (sat?-helper n (reduce-clauses ur-delta index-of-variable-to-set -1) new-delta-false))
+                                    (t (sat?-helper n (reduce-clauses pl-delta index-of-variable-to-set -1) new-delta-false))
                                 )
                             )
                         )
