@@ -148,9 +148,9 @@
     )
 )
 
-; unit-resolution n delta
+; unit-resolution delta values
 ; Performs unit resolution
-(defun unit-resolution (n delta values)
+(defun unit-resolution (delta values)
     (unit-resolution-helper nil delta values)
 )
 
@@ -257,7 +257,7 @@
             (let
                 ((cur (get-value counts cur-index)))
                 (cond
-                    ((> cur max) (get-most-common-value-from-counts n (+ 1 cur-index) cur-index cur counts))
+                    ((> cur max) (get-most-common-variable-from-counts n (+ 1 cur-index) cur-index cur counts))
                     ((get-most-common-variable-from-counts n (+ 1 cur-index) max-index max counts))
                 )
             )
@@ -284,7 +284,7 @@
     (let*
         (
             ; Perform unit resolution
-            (ur-result (unit-resolution n delta values))
+            (ur-result (unit-resolution delta values))
             (ur-delta (car ur-result))
             (ur-values (cadr ur-result))
             ; Perform pure literal elimination
@@ -297,9 +297,7 @@
             ((null pl-delta) (convert-to-result (assign-true-to-undefined-variables pl-values) 1 n))
             (
                 (let* ; Back-tracking DFS
-                    (
-                        (index-of-variable-to-set (heuristic-index-of-undefined-variable 1 n pl-delta pl-values))
-                    )
+                    ((index-of-variable-to-set (heuristic-index-of-undefined-variable 1 n pl-delta pl-values)))
                     (cond
                         (
                             (let* ; DFS set positive
