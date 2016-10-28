@@ -154,41 +154,83 @@
     (unit-resolution-helper nil delta values)
 )
 
-; Helper for testing
-; remove when done
-(defun test-unit-resolution (n delta)
-    (unit-resolution n delta (generate-unassigned-values n))
-)
-
-; convert-to-result values start n
+; convert-to-result variables start n
 ; Start should be 1 when this function is called the first time
 ; converts the given values list to the expected format for sat?
-(defun convert-to-result (values start n)
+(defun convert-to-result (variables start n)
     (cond
-        ((> start n) values)
-        (t (convert-to-result (set-value values start (* (get-value values start) start)) (+ start 1) n))
+        ((> start n) variables)
+        (t (convert-to-result (set-value variables start (* (get-value variables start) start)) (+ start 1) n))
     )
 )
 
-; assign-true-to-undefined-values values
-; For values list values, assigns true to undefined values
-(defun assign-true-to-undefined-values (values)
+; assign-true-to-undefined-variables values
+; For values list values, assigns true to undefined variables
+(defun assign-true-to-undefined-variables (values)
     (cond
         ((null values) nil)
-        ((= (car values) 0) (cons 1 (assign-true-to-undefined-values (cdr values))))
-        (t (cons (car values) (assign-true-to-undefined-values (cdr values))))
+        ((= (car values) 0) (cons 1 (assign-true-to-undefined-variables (cdr values))))
+        (t (cons (car values) (assign-true-to-undefined-variables (cdr values))))
     )
 )
 
-; Can delta be defined and all values set? I hope not
-; heuristic-index-of-undefined-value n delta values
-; My function names are almost self explanatory for this assignment
-; Bad heuristic: Find first unset value
-(defun heuristic-index-of-undefined-value (start n delta values)
+; heuristic-index-of-undefined-variable n delta values
+; Bad heuristic: Find first unset variable
+;; (defun heuristic-index-of-undefined-variable (start n delta values)
+;;     (cond
+;;         ((= (get-value values start) 0) start)
+;;         (t (heuristic-index-of-undefined-variable (+ start 1) n delta values))
+;;     )
+;; )
+
+; Implentation of heuristic: find the variable that appears the most times in all of the clauses
+; Slower for small CNFs, but faster for a lot of unsatisfiable CNFs
+
+; count-clause clause counts
+; Update counts list to have each n'th item be incremented by a count of how many times the n'th item appears in the clause
+(defun count-clause (clause counts)
     (cond
-        ((= (get-value values start) 0) start)
-        (t (heuristic-index-of-undefined-value (+ start 1) n delta values))
+        ((null clause) counts)
+        ((count-clause (cdr clause) (set-value counts (absv (car clause)) (+ (get-value counts (absv (car clause))) 1))))
     )
+)
+
+; count-clauses delta value
+; Update counts list: the n'th item in counts is the count of how many times n appears in delta
+(defun count-clauses (delta counts)
+    (cond
+        ((null delta) counts)
+        ((count-clauses (cdr delta) (count-clause (car delta) counts)))
+    )
+)
+
+; get-most-common-variable-from-counts
+; Gets the index of the most common variable from the counts list
+(defun get-most-common-variable-from-counts (n cur-index max-index max counts)
+    (cond
+        ((> cur-index n) max-index)
+        (
+            (let
+                ((cur (get-value counts cur-index)))
+                (cond
+                    ((> cur max) (get-most-common-value-from-counts n (+ 1 cur-index) cur-index cur counts))
+                    ((get-most-common-variable-from-counts n (+ 1 cur-index) max-index max counts))
+                )
+            )
+        )
+    )
+)
+
+; most-common-variable n delta
+; For delta, returns the index of the most common variable
+(defun most-common-variable (n delta)
+    (get-most-common-variable-from-counts n 1 0 0 (count-clauses delta (generate-unassigned-values n)))
+)
+
+; heuristic-index-of-undefined-variable
+; Uses the above functions as the heuristic
+(defun heuristic-index-of-undefined-variable (start n delta counts)
+    (most-common-variable n delta)
 )
 
 ; sat?-helper n delta values
@@ -204,34 +246,34 @@
         )
         (cond
             ((null ur-result) nil)
-            ((null ur-delta) (convert-to-result (assign-true-to-undefined-values ur-values) 1 n))
+            ((null ur-delta) (convert-to-result (assign-true-to-undefined-variables ur-values) 1 n))
             (
                 (let* ; Back-tracking DFS
                     (
-                        (index-of-value-to-set (heuristic-index-of-undefined-value 1 n ur-delta ur-values))
+                        (index-of-variable-to-set (heuristic-index-of-undefined-variable 1 n ur-delta ur-values))
                     )
                     (cond
                         (
                             (let* ; DFS set positive
                                 (
-                                    (new-delta-true (set-value ur-values index-of-value-to-set 1))
+                                    (new-delta-true (set-value ur-values index-of-variable-to-set 1))
                                     (cant-use-true (new-value-contradicts ur-delta n new-delta-true))
                                 )
                                 (cond
                                     (cant-use-true nil)
-                                    (t (sat?-helper n (reduce-clauses ur-delta index-of-value-to-set 1) new-delta-true))
+                                    (t (sat?-helper n (reduce-clauses ur-delta index-of-variable-to-set 1) new-delta-true))
                                 )
                             )
                         )
                         (
                             (let* ; DFS set negative
                                 (
-                                    (new-delta-false (set-value ur-values index-of-value-to-set -1))
+                                    (new-delta-false (set-value ur-values index-of-variable-to-set -1))
                                     (cant-use-false (new-value-contradicts ur-delta n new-delta-false))
                                 )
                                 (cond
                                     (cant-use-false nil)
-                                    (t (sat?-helper n (reduce-clauses ur-delta index-of-value-to-set -1) new-delta-false))
+                                    (t (sat?-helper n (reduce-clauses ur-delta index-of-variable-to-set -1) new-delta-false))
                                 )
                             )
                         )
